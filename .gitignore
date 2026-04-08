@@ -1,0 +1,16 @@
+# 機密設定（Streamlit Secrets 本地開發用）
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+
+# 系統
+.DS_Store
+Thumbs.db
+
+# 上傳的 Excel 暫存
+*.xlsm
