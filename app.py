@@ -346,6 +346,11 @@ if uploaded_file:
         # 將品牌欄位顯示名稱改為「類型」
         display_df = display_df.rename(columns={brand_col: "類型"})
 
+        # 數量欄轉整數（消除小數點）
+        int_cols = [c for c in ["上線量", "回廠量", "良品數", "不良品數", "過保數"] if c in display_df.columns]
+        for c in int_cols:
+            display_df[c] = pd.to_numeric(display_df[c], errors="coerce").fillna(0).astype(int)
+
         def highlight_rows(row):
             idx = row.name
             if is_total.iloc[idx]:
@@ -354,14 +359,17 @@ if uploaded_file:
                 return ["background-color: #d6e4f0; font-weight: bold"] * len(row)
             return [""] * len(row)
 
+        fmt = {c: "{:,}" for c in int_cols}
+        fmt.update({
+            "不良率(%)":   "{:.1f}",
+            "再使用率(%)": "{:.1f}",
+            "過保率(%)":   "{:.1f}",
+        })
+
         styled = (
             display_df.style
             .apply(highlight_rows, axis=1)
-            .format({
-                "不良率(%)":   "{:.1f}",
-                "再使用率(%)": "{:.1f}",
-                "過保率(%)":   "{:.1f}",
-            }, na_rep="")
+            .format(fmt, na_rep="")
         )
 
         st.dataframe(styled, use_container_width=True, height=500)
