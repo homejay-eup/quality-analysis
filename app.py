@@ -15,6 +15,20 @@ st.markdown("""
 
 st.title("📊 設備品質分析 Web 版")
 
+# ── 側邊欄：調色盤設定 ──────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## 🎨 配色設定")
+    with st.expander("展開調色盤", expanded=False):
+        color_online = st.color_picker("上線量顏色", value="#4e79a7")
+        color_return = st.color_picker("回廠量顏色", value="#f28e2b")
+        st.markdown("---")
+        st.markdown("**不良率漸層**")
+        color_bad_low  = st.color_picker("不良率低端色（好）", value="#00b050")
+        color_bad_high = st.color_picker("不良率高端色（差）", value="#ff0000")
+        st.markdown("**再使用率漸層**")
+        color_reuse_low  = st.color_picker("再使用率低端色（差）", value="#ff0000")
+        color_reuse_high = st.color_picker("再使用率高端色（好）", value="#00b050")
+
 uploaded_file = st.file_uploader("上傳設備品質分析 Excel", type=["xlsx"])
 
 if uploaded_file:
@@ -89,28 +103,56 @@ if uploaded_file:
             df.columns[0]
         )
 
+        # ── 建立 ERP品號+品名 複合顯示標籤 ──────────────────────────────
+        has_erp  = "ERP品號" in df.columns
+        has_name = "品名"    in df.columns
+
+        if has_erp:
+            if has_name:
+                # 組合顯示：「品號 - 品名」，空品名則只顯示品號
+                def make_label(row):
+                    pn   = str(row["ERP品號"]).strip() if pd.notna(row["ERP品號"]) else ""
+                    name_ = str(row["品名"]).strip()   if pd.notna(row["品名"])    else ""
+                    return f"{pn} - {name_}" if name_ else pn
+
+                df = df.copy()
+                df["_erp_label"] = df.apply(make_label, axis=1)
+                erp_label_col = "_erp_label"
+            else:
+                erp_label_col = "ERP品號"
+        else:
+            erp_label_col = None
+
         # ── 篩選器 ──────────────────────────────────────────────────────────
         f1, f2 = st.columns(2)
         with f1:
             sel_brands = st.multiselect(
-                "廠牌型號篩選", df[brand_col].dropna().unique(), key=f"{name}_brand"
+                "類型篩選", df[brand_col].dropna().unique(), key=f"{name}_brand"
             )
         with f2:
-            sel_erps = st.multiselect(
-                "ERP品號篩選", df["ERP品號"].dropna().unique() if "ERP品號" in df.columns else [],
-                key=f"{name}_erp"
-            )
+            if erp_label_col:
+                erp_options = df[erp_label_col].dropna().unique().tolist()
+                sel_erp_labels = st.multiselect(
+                    "ERP品號篩選", erp_options, key=f"{name}_erp"
+                )
+            else:
+                sel_erp_labels = []
+                st.multiselect("ERP品號篩選", [], key=f"{name}_erp")
 
         filtered = df.copy()
         if sel_brands:
             filtered = filtered[filtered[brand_col].isin(sel_brands)]
-        if sel_erps and "ERP品號" in filtered.columns:
-            filtered = filtered[filtered["ERP品號"].isin(sel_erps)]
+        if sel_erp_labels and erp_label_col:
+            filtered = filtered[filtered[erp_label_col].isin(sel_erp_labels)]
 
         # ── KPI ─────────────────────────────────────────────────────────────
         st.markdown("#### 整體指標")
         kpi_row(filtered)
         st.markdown("---")
+
+        # 自訂漸層配色
+        bad_scale   = [[0, color_bad_low],   [1, color_bad_high]]
+        reuse_scale = [[0, color_reuse_low],  [1, color_reuse_high]]
 
         # ── 圖表區 ──────────────────────────────────────────────────────────
         ch1, ch2 = st.columns(2)
@@ -120,10 +162,10 @@ if uploaded_file:
                 filtered.sort_values("不良率(%)", ascending=False),
                 x=brand_col, y="不良率(%)",
                 color="不良率(%)",
-                color_continuous_scale="RdYlGn_r",
+                color_continuous_scale=bad_scale,
                 title=f"{name}｜各型號不良率",
                 text="不良率(%)",
-                labels={brand_col: "廠牌型號"},
+                labels={brand_col: "類型"},
             )
             fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
             fig.update_layout(coloraxis_showscale=False, height=420)
@@ -151,10 +193,10 @@ if uploaded_file:
                 filtered.sort_values("再使用率(%)", ascending=False),
                 x=brand_col, y="再使用率(%)",
                 color="再使用率(%)",
-                color_continuous_scale="RdYlGn",
+                color_continuous_scale=reuse_scale,
                 title=f"{name}｜各型號再使用率",
                 text="再使用率(%)",
-                labels={brand_col: "廠牌型號"},
+                labels={brand_col: "類型"},
             )
             fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
             fig3.update_layout(coloraxis_showscale=False, height=420)
@@ -185,13 +227,13 @@ if uploaded_file:
         fig5 = go.Figure()
         fig5.add_trace(go.Bar(
             name="上線量", x=filtered[brand_col], y=filtered["上線量"],
-            marker_color="#4e79a7",
+            marker_color=color_online,
         ))
         fig5.add_trace(go.Bar(
             name="回廠量", x=filtered[brand_col], y=filtered["回廠量"],
-            marker_color="#f28e2b",
+            marker_color=color_return,
         ))
-        fig5.update_layout(barmode="group", height=400, xaxis_title="廠牌型號", yaxis_title="數量")
+        fig5.update_layout(barmode="group", height=400, xaxis_title="類型", yaxis_title="數量")
         st.plotly_chart(fig5, use_container_width=True)
 
         st.markdown("---")
