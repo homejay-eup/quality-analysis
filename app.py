@@ -227,6 +227,14 @@ if uploaded_file:
                     names=fault_totals.index,
                     title=f"{name}｜回廠原因分佈",
                 )
+                if label_mode.startswith("A"):
+                    fig2.update_traces(textinfo="percent+label", textposition="outside", textfont_size=12)
+                elif label_mode.startswith("B"):
+                    fig2.update_traces(textinfo="percent", textposition="auto",    textfont_size=12)
+                elif label_mode.startswith("C"):
+                    fig2.update_traces(textinfo="percent", textposition="outside", textfont_size=9)
+                else:  # D
+                    fig2.update_traces(textinfo="none")
                 fig2.update_layout(height=420)
                 st.plotly_chart(fig2, use_container_width=True)
             else:
@@ -279,6 +287,14 @@ if uploaded_file:
                     hole=0.45,
                     title=f"{name}｜處置結果分佈",
                 )
+                if label_mode.startswith("A"):
+                    fig4.update_traces(textinfo="percent+label", textposition="outside", textfont_size=12)
+                elif label_mode.startswith("B"):
+                    fig4.update_traces(textinfo="percent", textposition="auto",    textfont_size=12)
+                elif label_mode.startswith("C"):
+                    fig4.update_traces(textinfo="percent", textposition="outside", textfont_size=9)
+                else:  # D
+                    fig4.update_traces(textinfo="none")
                 fig4.update_layout(height=420)
                 st.plotly_chart(fig4, use_container_width=True)
             else:
@@ -287,13 +303,31 @@ if uploaded_file:
         # ── 上線量 vs 回廠量 ─────────────────────────────────────────────
         st.markdown("#### 上線量 vs 回廠量 對比")
         fig5 = go.Figure()
+        bar_text_kw = {}
+        if show_text:
+            bar_text_kw = dict(
+                text=filtered["上線量"],
+                texttemplate="%{text:,}",
+                textposition=txt_pos,
+                textfont_size=txt_size,
+            )
         fig5.add_trace(go.Bar(
             name="上線量", x=filtered[brand_col], y=filtered["上線量"],
             marker_color=color_online,
+            **bar_text_kw,
         ))
+        bar_text_kw2 = {}
+        if show_text:
+            bar_text_kw2 = dict(
+                text=filtered["回廠量"],
+                texttemplate="%{text:,}",
+                textposition=txt_pos,
+                textfont_size=txt_size,
+            )
         fig5.add_trace(go.Bar(
             name="回廠量", x=filtered[brand_col], y=filtered["回廠量"],
             marker_color=color_return,
+            **bar_text_kw2,
         ))
         fig5.update_layout(barmode="group", height=400, xaxis_title="類型", yaxis_title="數量")
         st.plotly_chart(fig5, use_container_width=True)
