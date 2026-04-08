@@ -165,12 +165,23 @@ if uploaded_file:
                 x=brand_col, y="不良率(%)",
                 color="不良率(%)",
                 color_continuous_scale=bad_scale,
-                title=f"{name}｜各型號不良率",
+                title=f"{name}｜各類型不良率",
                 text="不良率(%)",
                 labels={brand_col: "類型"},
             )
             fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig.update_layout(coloraxis_showscale=False, height=420)
+            fig.update_layout(
+                coloraxis_showscale=False,
+                height=420,
+                yaxis_title="",
+                annotations=[dict(
+                    text="不良率 (%)",
+                    x=-0.07, y=1.08,
+                    xref="paper", yref="paper",
+                    showarrow=False,
+                    font=dict(size=13),
+                )],
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         with ch2:
@@ -196,12 +207,23 @@ if uploaded_file:
                 x=brand_col, y="再使用率(%)",
                 color="再使用率(%)",
                 color_continuous_scale=reuse_scale,
-                title=f"{name}｜各型號再使用率",
+                title=f"{name}｜各類型再使用率",
                 text="再使用率(%)",
                 labels={brand_col: "類型"},
             )
             fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-            fig3.update_layout(coloraxis_showscale=False, height=420)
+            fig3.update_layout(
+                coloraxis_showscale=False,
+                height=420,
+                yaxis_title="",
+                annotations=[dict(
+                    text="再使用率 (%)",
+                    x=-0.07, y=1.08,
+                    xref="paper", yref="paper",
+                    showarrow=False,
+                    font=dict(size=13),
+                )],
+            )
             st.plotly_chart(fig3, use_container_width=True)
 
         with ch4:
