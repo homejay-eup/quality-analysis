@@ -337,7 +337,14 @@ if uploaded_file:
         st.markdown("---")
 
         # ── 詳細資料表（含廠牌小計） ─────────────────────────────────────
-        st.markdown("#### 詳細資料")
+        # ── 詳細資料標題列 + 摺疊開關 ───────────────────────────────────────
+        hd_col, tog_col = st.columns([3, 2])
+        hd_col.markdown("#### 詳細資料")
+        collapse_subtotal = tog_col.toggle(
+            "📁 摺疊明細（僅顯示小計）",
+            value=False,
+            key=f"{name}_collapse",
+        )
 
         show_cols = [brand_col, "ERP品號", "品名", "上線量", "回廠量",
                      "良品數", "不良品數", "過保數",
@@ -382,16 +389,26 @@ if uploaded_file:
         # 將品牌欄位顯示名稱改為「類型」
         display_df = display_df.rename(columns={brand_col: "類型"})
 
+        # 摺疊時只保留小計列＋總計列
+        if collapse_subtotal:
+            view_df      = display_df[is_subtotal | is_total].reset_index(drop=True)
+            is_sub_view  = view_df["ERP品號"] == "── 小計 ──"
+            is_tot_view  = view_df["類型"]    == "★ 總計"
+        else:
+            view_df      = display_df.reset_index(drop=True)
+            is_sub_view  = is_subtotal.reset_index(drop=True)
+            is_tot_view  = is_total.reset_index(drop=True)
+
         # 數量欄轉整數（消除小數點）
-        int_cols = [c for c in ["上線量", "回廠量", "良品數", "不良品數", "過保數"] if c in display_df.columns]
+        int_cols = [c for c in ["上線量", "回廠量", "良品數", "不良品數", "過保數"] if c in view_df.columns]
         for c in int_cols:
-            display_df[c] = pd.to_numeric(display_df[c], errors="coerce").fillna(0).astype(int)
+            view_df[c] = pd.to_numeric(view_df[c], errors="coerce").fillna(0).astype(int)
 
         def highlight_rows(row):
             idx = row.name
-            if is_total.iloc[idx]:
+            if is_tot_view.iloc[idx]:
                 return ["background-color: #1f4e79; color: white; font-weight: bold"] * len(row)
-            if is_subtotal.iloc[idx]:
+            if is_sub_view.iloc[idx]:
                 return ["background-color: #d6e4f0; font-weight: bold"] * len(row)
             return [""] * len(row)
 
@@ -402,13 +419,21 @@ if uploaded_file:
             "過保率(%)":   "{:.1f}",
         })
 
+        # 摺疊時去掉 ERP品號 欄（小計列固定顯示「── 小計 ──」意義不大）
+        if collapse_subtotal:
+            disp_cols = [c for c in view_df.columns if c not in ["ERP品號", "品名"]]
+            view_df   = view_df[disp_cols]
+            fmt       = {k: v for k, v in fmt.items() if k in disp_cols}
+
+        table_height = max(200, min(60 * len(view_df) + 38, 600))
+
         styled = (
-            display_df.style
+            view_df.style
             .apply(highlight_rows, axis=1)
             .format(fmt, na_rep="")
         )
 
-        st.dataframe(styled, use_container_width=True, height=500)
+        st.dataframe(styled, use_container_width=True, height=table_height)
 
         # ── 下載 ─────────────────────────────────────────────────────────
         def to_excel(d):
