@@ -109,11 +109,11 @@ if uploaded_file:
         reuse_rate  = total_good  / total_ret * 100 if total_ret else 0
         scrap_rate  = total_scrap / total_on  * 100 if total_on  else 0
         c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("總上線量",     f"{total_on:,}")
-        c2.metric("期間回廠量",   f"{total_ret:,}")
-        c3.metric("整體不良率",   f"{bad_rate:.1f}%")
-        c4.metric("整體再使用率", f"{reuse_rate:.1f}%")
-        c5.metric("整體過保率",   f"{scrap_rate:.1f}%")
+        c1.metric("總上線量",   f"{total_on:,}")
+        c2.metric("期間回廠量", f"{total_ret:,}")
+        c3.metric("期間再使用率", f"{reuse_rate:.1f}%")
+        c4.metric("整體不良率", f"{bad_rate:.1f}%")
+        c5.metric("整體過保率", f"{scrap_rate:.1f}%")
 
     # ── 主繪圖函數 ──────────────────────────────────────────────────────────
     def render_tab(df, name, fault_cols):
