@@ -29,6 +29,24 @@ with st.sidebar:
         color_reuse_low  = st.color_picker("再使用率低端色（差）", value="#ff0000")
         color_reuse_high = st.color_picker("再使用率高端色（好）", value="#00b050")
 
+    st.markdown("## 🔢 數值顯示模式")
+    label_mode = st.radio(
+        "長條圖數值顯示方式",
+        options=[
+            "A｜外部顯示（預設）",
+            "B｜自動判斷位置",
+            "C｜小字體外部顯示",
+            "D｜僅 Hover 顯示",
+        ],
+        index=0,
+        help=(
+            "A：數值固定顯示於長條外側（原始設定，類型多時可能重疊）\n\n"
+            "B：Plotly 自動判斷放內或外，較不易碰撞\n\n"
+            "C：字體縮小至 10px，外部顯示，密集時較整齊\n\n"
+            "D：長條上不顯示數字，移到長條上才出現數值"
+        ),
+    )
+
 uploaded_file = st.file_uploader("上傳設備品質分析 Excel", type=["xlsx"])
 
 if uploaded_file:
@@ -159,6 +177,16 @@ if uploaded_file:
         # ── 圖表區 ──────────────────────────────────────────────────────────
         ch1, ch2 = st.columns(2)
 
+        # 根據側邊欄模式決定數值標籤設定
+        if label_mode.startswith("A"):
+            txt_pos, txt_size, show_text = "outside",  12, True
+        elif label_mode.startswith("B"):
+            txt_pos, txt_size, show_text = "auto",     12, True
+        elif label_mode.startswith("C"):
+            txt_pos, txt_size, show_text = "outside",   9, True
+        else:  # D
+            txt_pos, txt_size, show_text = "outside",  12, False
+
         with ch1:
             fig = px.bar(
                 filtered.sort_values("不良率(%)", ascending=False),
@@ -166,10 +194,15 @@ if uploaded_file:
                 color="不良率(%)",
                 color_continuous_scale=bad_scale,
                 title=f"{name}｜各類型不良率",
-                text="不良率(%)",
+                text="不良率(%)" if show_text else None,
                 labels={brand_col: "類型"},
             )
-            fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            if show_text:
+                fig.update_traces(
+                    texttemplate="%{text:.1f}%",
+                    textposition=txt_pos,
+                    textfont_size=txt_size,
+                )
             fig.update_layout(
                 coloraxis_showscale=False,
                 height=420,
@@ -208,10 +241,15 @@ if uploaded_file:
                 color="再使用率(%)",
                 color_continuous_scale=reuse_scale,
                 title=f"{name}｜各類型再使用率",
-                text="再使用率(%)",
+                text="再使用率(%)" if show_text else None,
                 labels={brand_col: "類型"},
             )
-            fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            if show_text:
+                fig3.update_traces(
+                    texttemplate="%{text:.1f}%",
+                    textposition=txt_pos,
+                    textfont_size=txt_size,
+                )
             fig3.update_layout(
                 coloraxis_showscale=False,
                 height=420,
