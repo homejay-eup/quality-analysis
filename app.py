@@ -123,15 +123,19 @@ if uploaded_file:
         else:
             erp_label_col = None
 
-        # ── 篩選器 ──────────────────────────────────────────────────────────
+        # ── 篩選器（類型先選，ERP選項依類型聯動縮減）──────────────────────
         f1, f2 = st.columns(2)
         with f1:
             sel_brands = st.multiselect(
                 "類型篩選", df[brand_col].dropna().unique(), key=f"{name}_brand"
             )
+
+        # 先套用類型篩選，ERP 選項僅顯示該類型下的品號
+        brand_filtered = df[df[brand_col].isin(sel_brands)] if sel_brands else df
+
         with f2:
             if erp_label_col:
-                erp_options = df[erp_label_col].dropna().unique().tolist()
+                erp_options = brand_filtered[erp_label_col].dropna().unique().tolist()
                 sel_erp_labels = st.multiselect(
                     "ERP品號篩選", erp_options, key=f"{name}_erp"
                 )
@@ -139,9 +143,7 @@ if uploaded_file:
                 sel_erp_labels = []
                 st.multiselect("ERP品號篩選", [], key=f"{name}_erp")
 
-        filtered = df.copy()
-        if sel_brands:
-            filtered = filtered[filtered[brand_col].isin(sel_brands)]
+        filtered = brand_filtered.copy()
         if sel_erp_labels and erp_label_col:
             filtered = filtered[filtered[erp_label_col].isin(sel_erp_labels)]
 
@@ -280,6 +282,9 @@ if uploaded_file:
         # 標記小計/總計列（用於樣式）
         is_subtotal = display_df["ERP品號"] == "── 小計 ──"
         is_total    = display_df[brand_col]  == "★ 總計"
+
+        # 將品牌欄位顯示名稱改為「類型」
+        display_df = display_df.rename(columns={brand_col: "類型"})
 
         def highlight_rows(row):
             idx = row.name
