@@ -457,4 +457,4 @@ if uploaded_file:
         render_tab(df_lens, "鏡頭", LENS_FAULT_COLS)
 
 else:
-    st.info("請先上傳 Excel 檔案（需含「車機_彙整總覽」與「鏡頭_彙整總覽」工作表）")
+    st.info("請先上傳 Excel 檔案 - 分析總表（需含「車機、鏡頭 兩個工作表）")
