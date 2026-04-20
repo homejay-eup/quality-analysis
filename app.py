@@ -118,10 +118,10 @@ if uploaded_file:
 
         # ── 顯示設定 ────────────────────────────────────────────────────────
         with st.expander("⚙️ 顯示設定", expanded=False):
-            cfg1, cfg2 = st.columns(2)
+            cfg1, cfg2, cfg3 = st.columns(3)
 
             with cfg1:
-                st.markdown("**🎨 配色設定**")
+                st.markdown("**🎨 長條圖配色**")
                 color_online     = st.color_picker("上線量顏色",        value="#4e79a7", key=f"{name}_c_online")
                 color_return     = st.color_picker("回廠量顏色",        value="#f28e2b", key=f"{name}_c_return")
                 st.markdown("**不良率漸層**")
@@ -144,6 +144,21 @@ if uploaded_file:
                     key=f"{name}_label_mode",
                     help="A：固定外側｜B：自動判斷｜C：字體縮小｜D：僅 Hover",
                 )
+
+            with cfg3:
+                st.markdown("**🥧 圓環圖配色**")
+                st.markdown("**處置結果 / 上線量構成**")
+                _fault_defaults = ["#636efa", "#ef553b", "#00cc96", "#ab63fa", "#ffa15a"]
+                pie_c_good  = st.color_picker("良品（再使用）",      value="#4472c4", key=f"{name}_pc_good")
+                pie_c_bad   = st.color_picker("不良品（維修/換貨）", value="#e74c3c", key=f"{name}_pc_bad")
+                pie_c_scrap = st.color_picker("過保/報廢",           value="#95a5a6", key=f"{name}_pc_scr")
+                pie_c_still = st.color_picker("仍在線上數",          value="#4e79a7", key=f"{name}_pc_still")
+                st.markdown("**回廠原因分佈**")
+                pie_fault_colors = {
+                    fc: st.color_picker(fc, value=_fault_defaults[i % len(_fault_defaults)],
+                                        key=f"{name}_pc_fault_{i}")
+                    for i, fc in enumerate(fault_cols)
+                }
 
             with cfg2:
                 st.markdown("**📊 整體指標顯示**")
@@ -226,7 +241,9 @@ if uploaded_file:
             totals = filtered[avail].sum()
             totals = totals[totals > 0]
             if not totals.empty:
-                fig2 = px.pie(values=totals.values, names=totals.index, title=f"{name}｜回廠原因分佈")
+                fig2 = px.pie(values=totals.values, names=totals.index,
+                              hole=0.45, color_discrete_map=pie_fault_colors,
+                              title=f"{name}｜回廠原因分佈")
                 if label_mode.startswith("A"):
                     fig2.update_traces(textinfo="percent+label", textposition="outside", textfont_size=12)
                 elif label_mode.startswith("B"):
@@ -268,8 +285,10 @@ if uploaded_file:
             vals = {v: int(filtered[k].sum()) for k, v in disp_map.items() if k in filtered.columns}
             vals = {k: v for k, v in vals.items() if v > 0}
             if vals:
+                _disp_cmap = {"良品（再使用）": pie_c_good, "不良品（維修/換貨）": pie_c_bad, "過保/報廢": pie_c_scrap}
                 fig4 = px.pie(values=list(vals.values()), names=list(vals.keys()),
-                              hole=0.45, title=f"{name}｜處置結果分佈")
+                              hole=0.45, color_discrete_map=_disp_cmap,
+                              title=f"{name}｜處置結果分佈")
                 if label_mode.startswith("A"):
                     fig4.update_traces(textinfo="percent+label", textposition="outside", textfont_size=12)
                 elif label_mode.startswith("B"):
@@ -308,7 +327,10 @@ if uploaded_file:
             }
             comp = {k: v for k, v in comp.items() if v > 0}
             if comp:
+                _comp_cmap = {"良品（再使用）": pie_c_good, "不良品（維修/換貨）": pie_c_bad,
+                              "過保/報廢": pie_c_scrap, "仍在線上數": pie_c_still}
                 fig6 = px.pie(values=list(comp.values()), names=list(comp.keys()),
+                              hole=0.45, color_discrete_map=_comp_cmap,
                               title=f"{name}｜上線量構成")
                 if label_mode.startswith("A"):
                     fig6.update_traces(textinfo="percent+label", textposition="outside", textfont_size=12)
