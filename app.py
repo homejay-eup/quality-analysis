@@ -388,7 +388,8 @@ if uploaded_file:
         subtotals["整體不良率(%)"] = (subtotals["不良品數"] / subtotals["上線量"] * 100).fillna(0).round(1)
         subtotals["整體過保率(%)"] = (subtotals["過保數"]   / subtotals["上線量"] * 100).fillna(0).round(1)
         if "已使用年限" in show_cols:
-            subtotals["已使用年限"] = None
+            yr_mean = filtered.groupby(brand_col, sort=False)["已使用年限"].mean().round(1)
+            subtotals["已使用年限"] = subtotals[brand_col].map(yr_mean)
 
         frames = []
         for brand, grp in filtered[show_cols].groupby(brand_col, sort=False):
@@ -405,7 +406,7 @@ if uploaded_file:
         total_row["整體不良率(%)"] = round(total_row["不良品數"] / total_row["上線量"] * 100, 1) if total_row.get("上線量") else 0
         total_row["整體過保率(%)"] = round(total_row["過保數"]   / total_row["上線量"] * 100, 1) if total_row.get("上線量") else 0
         if "已使用年限" in show_cols:
-            total_row["已使用年限"] = None
+            total_row["已使用年限"] = round(filtered["已使用年限"].mean(), 1)
         frames.append(pd.DataFrame([total_row]))
 
         display_df  = pd.concat(frames, ignore_index=True)[show_cols]
