@@ -412,7 +412,7 @@ if uploaded_file:
         display_df  = pd.concat(frames, ignore_index=True)[show_cols]
         is_subtotal = display_df["ERP品號"] == "── 小計 ──"
         is_total    = display_df[brand_col]  == "★ 總計"
-        display_df  = display_df.rename(columns={brand_col: "類型"})
+        display_df  = display_df.rename(columns={brand_col: "類型", "已使用年限": "已使用年限(平均)"})
 
         if collapse_subtotal:
             view_df     = display_df[is_subtotal | is_total].reset_index(drop=True)
@@ -443,8 +443,8 @@ if uploaded_file:
             "整體不良率(%)": "{:.1f}",
             "整體過保率(%)": "{:.1f}",
         })
-        if "已使用年限" in view_df.columns:
-            fmt["已使用年限"] = "{:.1f}"
+        if "已使用年限(平均)" in view_df.columns:
+            fmt["已使用年限(平均)"] = "{:.1f}"
 
         if collapse_subtotal:
             disp_cols = [c for c in view_df.columns if c not in ["ERP品號", "品名"]]
