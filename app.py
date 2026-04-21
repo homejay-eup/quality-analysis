@@ -371,7 +371,7 @@ if uploaded_file:
 
         show_cols = [brand_col, "ERP品號", "品名", "上線量", "回廠量",
                      "良品數", "再使用率(%)", "不良品數", "不良率(%)",
-                     "過保數", "過保率(%)", "整體不良率(%)", "整體過保率(%)"]
+                     "過保數", "過保率(%)", "已使用年限", "整體不良率(%)", "整體過保率(%)"]
         show_cols = [c for c in show_cols if c in filtered.columns]
         num_cols  = ["上線量", "回廠量", "良品數", "不良品數", "過保數"]
         num_cols  = [c for c in num_cols if c in filtered.columns]
@@ -387,6 +387,8 @@ if uploaded_file:
         subtotals["過保率(%)"]     = (subtotals["過保數"]   / subtotals["回廠量"] * 100).fillna(0).round(1)
         subtotals["整體不良率(%)"] = (subtotals["不良品數"] / subtotals["上線量"] * 100).fillna(0).round(1)
         subtotals["整體過保率(%)"] = (subtotals["過保數"]   / subtotals["上線量"] * 100).fillna(0).round(1)
+        if "已使用年限" in show_cols:
+            subtotals["已使用年限"] = None
 
         frames = []
         for brand, grp in filtered[show_cols].groupby(brand_col, sort=False):
@@ -402,6 +404,8 @@ if uploaded_file:
         total_row["過保率(%)"]     = round(total_row["過保數"]   / total_row["回廠量"] * 100, 1) if total_row.get("回廠量") else 0
         total_row["整體不良率(%)"] = round(total_row["不良品數"] / total_row["上線量"] * 100, 1) if total_row.get("上線量") else 0
         total_row["整體過保率(%)"] = round(total_row["過保數"]   / total_row["上線量"] * 100, 1) if total_row.get("上線量") else 0
+        if "已使用年限" in show_cols:
+            total_row["已使用年限"] = None
         frames.append(pd.DataFrame([total_row]))
 
         display_df  = pd.concat(frames, ignore_index=True)[show_cols]
@@ -438,6 +442,8 @@ if uploaded_file:
             "整體不良率(%)": "{:.1f}",
             "整體過保率(%)": "{:.1f}",
         })
+        if "已使用年限" in view_df.columns:
+            fmt["已使用年限"] = "{:.1f}"
 
         if collapse_subtotal:
             disp_cols = [c for c in view_df.columns if c not in ["ERP品號", "品名"]]
