@@ -388,7 +388,8 @@ if uploaded_file:
         subtotals["整體不良率(%)"] = (subtotals["不良品數"] / subtotals["上線量"] * 100).fillna(0).round(1)
         subtotals["整體過保率(%)"] = (subtotals["過保數"]   / subtotals["上線量"] * 100).fillna(0).round(1)
         if "已使用年限" in show_cols:
-            yr_mean = filtered.groupby(brand_col, sort=False)["已使用年限"].mean().round(1)
+            yr_mean = (filtered[filtered["過保數"] > 0]
+                       .groupby(brand_col, sort=False)["已使用年限"].mean().round(1))
             subtotals["已使用年限"] = subtotals[brand_col].map(yr_mean)
 
         frames = []
@@ -406,13 +407,13 @@ if uploaded_file:
         total_row["整體不良率(%)"] = round(total_row["不良品數"] / total_row["上線量"] * 100, 1) if total_row.get("上線量") else 0
         total_row["整體過保率(%)"] = round(total_row["過保數"]   / total_row["上線量"] * 100, 1) if total_row.get("上線量") else 0
         if "已使用年限" in show_cols:
-            total_row["已使用年限"] = round(filtered["已使用年限"].mean(), 1)
+            total_row["已使用年限"] = round(filtered[filtered["過保數"] > 0]["已使用年限"].mean(), 1)
         frames.append(pd.DataFrame([total_row]))
 
         display_df  = pd.concat(frames, ignore_index=True)[show_cols]
         is_subtotal = display_df["ERP品號"] == "── 小計 ──"
         is_total    = display_df[brand_col]  == "★ 總計"
-        display_df  = display_df.rename(columns={brand_col: "類型", "已使用年限": "已使用年限(平均)"})
+        display_df  = display_df.rename(columns={brand_col: "類型", "已使用年限": "過保已使用年限(平均)"})
 
         if collapse_subtotal:
             view_df     = display_df[is_subtotal | is_total].reset_index(drop=True)
@@ -443,8 +444,8 @@ if uploaded_file:
             "整體不良率(%)": "{:.1f}",
             "整體過保率(%)": "{:.1f}",
         })
-        if "已使用年限(平均)" in view_df.columns:
-            fmt["已使用年限(平均)"] = "{:.1f}"
+        if "過保已使用年限(平均)" in view_df.columns:
+            fmt["過保已使用年限(平均)"] = "{:.1f}"
 
         if collapse_subtotal:
             disp_cols = [c for c in view_df.columns if c not in ["ERP品號", "品名"]]
