@@ -50,6 +50,11 @@ except Exception as e:
 def get_sheet(name):
     return sheets.get(name, pd.DataFrame()).copy()
 
+# ── 工具函數 ──────────────────────────────────────────────────────────────────
+def vlabel(text):
+    """Y 軸標籤垂直文字（每個字元換行）"""
+    return "<br>".join(list(str(text)))
+
 # ── 資料前處理 ────────────────────────────────────────────────────────────────
 def process(df, fault_cols):
     df = df.copy()
@@ -207,43 +212,101 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
     df_cur = df_all[df_all["期間"] == period_cur].copy()
     df_prv = df_all[df_all["期間"] == period_prv].copy() if has_prv else None
 
-    brand_col = next((c for c in ["廠牌型號","廠牌","類型"] if c in df_cur.columns), df_cur.columns[0])
-    has_erp  = "ERP品號" in df_cur.columns
-    has_name = "品名"    in df_cur.columns
+    brand_col  = next((c for c in ["廠牌型號","廠牌","類型"] if c in df_cur.columns), df_cur.columns[0])
+    has_vendor = "廠商" in df_cur.columns
+    has_erp    = "ERP品號" in df_cur.columns
+    has_name   = "品名" in df_cur.columns
+
     if has_erp and has_name:
-        df_cur["_label"] = df_cur.apply(
-            lambda r: f"{str(r['ERP品號']).strip()} - {str(r['品名']).strip()}"
-            if pd.notna(r["ERP品號"]) else str(r["品名"]), axis=1)
-        if df_prv is not None:
-            df_prv["_label"] = df_prv.apply(
+        def _make_label(df):
+            df["_label"] = df.apply(
                 lambda r: f"{str(r['ERP品號']).strip()} - {str(r['品名']).strip()}"
                 if pd.notna(r["ERP品號"]) else str(r["品名"]), axis=1)
+        _make_label(df_cur)
+        if df_prv is not None:
+            _make_label(df_prv)
 
-    fc1, fc2 = st.columns(2)
-    with fc1:
-        sel_brands = st.multiselect("類型篩選", df_cur[brand_col].dropna().unique(), key=f"{name}_brand")
-    with fc2:
-        if has_erp:
-            fd = df_cur[df_cur[brand_col].isin(sel_brands)] if sel_brands else df_cur
-            erp_opts = fd["_label"].dropna().unique().tolist() if "_label" in fd.columns else fd["ERP品號"].dropna().unique().tolist()
-            sel_erp  = st.multiselect("ERP品號篩選", erp_opts, key=f"{name}_erp")
-        else:
-            sel_erp = []
-            st.multiselect("ERP品號篩選", [], key=f"{name}_erp")
+    # ── 篩選器：廠商 → 類型 → ERP品號（階層式聯動）
+    if has_vendor:
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            sel_vendors = st.multiselect(
+                "廠商篩選",
+                sorted(df_cur["廠商"].dropna().unique().tolist()),
+                key=f"{name}_vendor"
+            )
+        _v_df = df_cur[df_cur["廠商"].isin(sel_vendors)] if sel_vendors else df_cur
+        with fc2:
+            sel_brands = st.multiselect(
+                "類型篩選",
+                sorted(_v_df[brand_col].dropna().unique().tolist()),
+                key=f"{name}_brand"
+            )
+        _b_df = _v_df[_v_df[brand_col].isin(sel_brands)] if sel_brands else _v_df
+        with fc3:
+            if has_erp:
+                _erp_opts = (
+                    _b_df["_label"].dropna().unique().tolist()
+                    if "_label" in _b_df.columns
+                    else _b_df["ERP品號"].dropna().unique().tolist()
+                )
+                sel_erp = st.multiselect("ERP品號篩選", _erp_opts, key=f"{name}_erp")
+            else:
+                sel_erp = []
+                st.multiselect("ERP品號篩選", [], key=f"{name}_erp")
+    else:
+        fc1, fc2 = st.columns(2)
+        sel_vendors = []
+        with fc1:
+            sel_brands = st.multiselect(
+                "類型篩選",
+                df_cur[brand_col].dropna().unique(),
+                key=f"{name}_brand"
+            )
+        with fc2:
+            if has_erp:
+                _fd = df_cur[df_cur[brand_col].isin(sel_brands)] if sel_brands else df_cur
+                _erp_opts = (
+                    _fd["_label"].dropna().unique().tolist()
+                    if "_label" in _fd.columns
+                    else _fd["ERP品號"].dropna().unique().tolist()
+                )
+                sel_erp = st.multiselect("ERP品號篩選", _erp_opts, key=f"{name}_erp")
+            else:
+                sel_erp = []
+                st.multiselect("ERP品號篩選", [], key=f"{name}_erp")
 
+    # 套用篩選
+    if has_vendor and sel_vendors:
+        df_cur = df_cur[df_cur["廠商"].isin(sel_vendors)]
+        if df_prv is not None:
+            df_prv = df_prv[df_prv["廠商"].isin(sel_vendors)]
     if sel_brands:
         df_cur = df_cur[df_cur[brand_col].isin(sel_brands)]
         if df_prv is not None:
             df_prv = df_prv[df_prv[brand_col].isin(sel_brands)]
     if sel_erp and "_label" in df_cur.columns:
         df_cur = df_cur[df_cur["_label"].isin(sel_erp)]
-        if df_prv is not None:
+        if df_prv is not None and "_label" in df_prv.columns:
             df_prv = df_prv[df_prv["_label"].isin(sel_erp)]
 
     kpi_c = calc_kpi(df_cur)
     kpi_p = calc_kpi(df_prv) if df_prv is not None and len(df_prv) > 0 else None
 
-    st.markdown("#### 整體指標")
+    # ── 整體指標（彈性顯示）
+    ALL_KPIS     = ["總上線量", "期間回廠量", "期間再使用率", "期間不良率", "整體不良率", "整體過保率"]
+    DEFAULT_KPIS = ["總上線量", "期間回廠量", "期間再使用率", "整體不良率", "整體過保率"]
+
+    kpi_hdr, kpi_cfg = st.columns([4, 2])
+    kpi_hdr.markdown("#### 整體指標")
+    with kpi_cfg:
+        with st.expander("⚙️ 選擇顯示指標"):
+            shown_kpis = st.multiselect(
+                "顯示的整體指標", ALL_KPIS, default=DEFAULT_KPIS,
+                key=f"{name}_kpi_sel", label_visibility="collapsed"
+            )
+    if not shown_kpis:
+        shown_kpis = DEFAULT_KPIS
 
     def d_str(cur_v, prv_v, fmt=",.0f", suffix=""):
         if prv_v is None:
@@ -251,7 +314,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         d = cur_v - prv_v
         return f"{'+' if d >= 0 else ''}{d:{fmt}}{suffix}"
 
-    kpis = [
+    kpis_all = [
         ("總上線量",     f"{kpi_c['total_on']:,}",        d_str(kpi_c['total_on'],      kpi_p['total_on']      if kpi_p else None)),
         ("期間回廠量",   f"{kpi_c['total_ret']:,}",       d_str(kpi_c['total_ret'],     kpi_p['total_ret']     if kpi_p else None)),
         ("期間再使用率", f"{kpi_c['reuse_rate']:.1f}%",   d_str(kpi_c['reuse_rate'],    kpi_p['reuse_rate']    if kpi_p else None, fmt=".1f", suffix="%")),
@@ -259,6 +322,8 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         ("整體不良率",   f"{kpi_c['ovr_bad_rate']:.1f}%", d_str(kpi_c['ovr_bad_rate'],  kpi_p['ovr_bad_rate']  if kpi_p else None, fmt=".1f", suffix="%")),
         ("整體過保率",   f"{kpi_c['ovr_scr_rate']:.1f}%", d_str(kpi_c['ovr_scr_rate'],  kpi_p['ovr_scr_rate']  if kpi_p else None, fmt=".1f", suffix="%")),
     ]
+    kpis = [(label, value, delta) for label, value, delta in kpis_all if label in shown_kpis]
+
     for i in range(0, len(kpis), 3):
         row_cols = st.columns(3)
         for j, col in enumerate(row_cols):
@@ -268,33 +333,91 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
 
     st.markdown("---")
 
+    # ── 月趨勢（含廠商→類型→ERP品號 層級篩選）
     df_trend_raw = get_sheet(trend_sheet_name)
     if not df_trend_raw.empty:
         st.markdown("#### 📈 月趨勢")
         df_trend_raw.columns = df_trend_raw.columns.str.strip()
         trend_cols_avail = [c for c in ["回廠量","不良品數","良品數","過保數","上線量"] if c in df_trend_raw.columns]
-        tc1, tc2 = st.columns([2, 4])
-        with tc1:
-            sel_metric = st.selectbox("趨勢指標", trend_cols_avail, key=f"{name}_tm")
-        with tc2:
-            trend_periods = [period_cur] + ([period_prv] if has_prv else [])
-            dt = df_trend_raw[df_trend_raw["期間"].isin(trend_periods)].copy()
-            if sel_brands and brand_col in dt.columns:
-                dt = dt[dt[brand_col].isin(sel_brands)]
-            if "年月" in dt.columns and sel_metric in dt.columns:
-                dt_agg = dt.groupby(["期間","年月"])[sel_metric].sum().reset_index()
-                dt_agg["月份"] = dt_agg["年月"].astype(str).str[-2:] + "月"
-                fig_t = px.line(
-                    dt_agg, x="月份", y=sel_metric, color="期間",
-                    markers=True,
-                    title=f"{name}｜{sel_metric} 月趨勢",
-                    color_discrete_map={period_cur:"#4e79a7", period_prv:"#f28e2b"},
-                )
-                fig_t.update_traces(line=dict(width=2.5), marker=dict(size=8))
-                fig_t.update_layout(height=360, yaxis_title=sel_metric, legend_title="期間")
-                st.plotly_chart(fig_t, use_container_width=True)
+
+        trend_periods = [period_cur] + ([period_prv] if has_prv else [])
+        dt_base = df_trend_raw[df_trend_raw["期間"].isin(trend_periods)].copy()
+
+        # 以主表廠商資訊補充趨勢資料
+        t_brand_col = next((c for c in ["廠牌型號","廠牌","類型"] if c in dt_base.columns), None)
+        if has_vendor and t_brand_col and brand_col in df_all.columns:
+            _vmap = df_all[[brand_col, "廠商"]].drop_duplicates()
+            if brand_col == t_brand_col:
+                dt_base = dt_base.merge(_vmap, on=brand_col, how="left")
             else:
-                st.info("月趨勢工作表缺少 `年月` 或對應指標欄位")
+                _vmap2 = _vmap.rename(columns={brand_col: t_brand_col})
+                dt_base = dt_base.merge(_vmap2, on=t_brand_col, how="left")
+
+        t_has_vendor = "廠商" in dt_base.columns
+        t_has_erp    = "ERP品號" in dt_base.columns
+
+        # 計算趨勢篩選器欄位數
+        _tcol_count = 1 + (1 if t_has_vendor else 0) + (1 if t_brand_col else 0) + (1 if t_has_erp else 0)
+        trend_ui = st.columns(_tcol_count)
+
+        with trend_ui[0]:
+            sel_metric = st.selectbox("趨勢指標", trend_cols_avail, key=f"{name}_tm")
+
+        _tidx = 1
+        t_sel_vendor = []
+        t_sel_brand  = []
+        t_sel_erp    = []
+
+        if t_has_vendor:
+            with trend_ui[_tidx]:
+                t_sel_vendor = st.multiselect(
+                    "廠商", sorted(dt_base["廠商"].dropna().unique().tolist()),
+                    key=f"{name}_t_vendor"
+                )
+            _tidx += 1
+
+        _dt_v = dt_base[dt_base["廠商"].isin(t_sel_vendor)] if t_sel_vendor and t_has_vendor else dt_base
+
+        if t_brand_col:
+            with trend_ui[_tidx]:
+                t_sel_brand = st.multiselect(
+                    "類型", sorted(_dt_v[t_brand_col].dropna().unique().tolist()),
+                    key=f"{name}_t_brand"
+                )
+            _tidx += 1
+
+        _dt_b = _dt_v[_dt_v[t_brand_col].isin(t_sel_brand)] if t_sel_brand and t_brand_col else _dt_v
+
+        if t_has_erp:
+            with trend_ui[_tidx]:
+                t_sel_erp = st.multiselect(
+                    "ERP品號", sorted(_dt_b["ERP品號"].dropna().unique().tolist()),
+                    key=f"{name}_t_erp"
+                )
+
+        # 套用趨勢篩選
+        dt = dt_base.copy()
+        if t_sel_vendor and t_has_vendor:
+            dt = dt[dt["廠商"].isin(t_sel_vendor)]
+        if t_sel_brand and t_brand_col:
+            dt = dt[dt[t_brand_col].isin(t_sel_brand)]
+        if t_sel_erp and t_has_erp:
+            dt = dt[dt["ERP品號"].isin(t_sel_erp)]
+
+        if "年月" in dt.columns and sel_metric in dt.columns:
+            dt_agg = dt.groupby(["期間","年月"])[sel_metric].sum().reset_index()
+            dt_agg["月份"] = dt_agg["年月"].astype(str).str[-2:] + "月"
+            fig_t = px.line(
+                dt_agg, x="月份", y=sel_metric, color="期間",
+                markers=True,
+                title=f"{name}｜{sel_metric} 月趨勢",
+                color_discrete_map={period_cur:"#4e79a7", period_prv:"#f28e2b"},
+            )
+            fig_t.update_traces(line=dict(width=2.5), marker=dict(size=8))
+            fig_t.update_layout(height=360, yaxis_title=vlabel(sel_metric), legend_title="期間")
+            st.plotly_chart(fig_t, use_container_width=True)
+        else:
+            st.info("月趨勢工作表缺少 `年月` 或對應指標欄位")
         st.markdown("---")
     else:
         with st.expander(f"💡 如何啟用月趨勢圖？", expanded=False):
@@ -304,13 +427,21 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 "例：`2026-Q1` | `2026-01` | `16-1車機` | 120 | 5 | 2 | 3 | 0"
             )
 
+    # ── 圖表分析（多選彈性顯示）
     st.markdown("#### 📊 圖表分析")
-    chart_mode = st.radio(
-        "圖表模式", ["回廠原因分佈", "處置結果分佈", "各類型不良率", "同期回廠量比較"],
-        horizontal=True, key=f"{name}_cm"
+
+    base_chart_opts   = ["回廠原因分佈", "處置結果分佈", "各類型不良率", "同期回廠量比較"]
+    vendor_chart_opts = ["廠商同期比較", "廠商各指標分析"] if has_vendor else []
+    all_chart_opts    = base_chart_opts + vendor_chart_opts
+
+    sel_charts = st.multiselect(
+        "選擇顯示圖表（可多選）", all_chart_opts,
+        default=base_chart_opts,
+        key=f"{name}_charts"
     )
 
-    if chart_mode == "回廠原因分佈":
+    if "回廠原因分佈" in sel_charts:
+        st.markdown("##### 回廠原因分佈")
         left, right = st.columns(2)
         for col_w, df_w, label in [(left, df_cur, period_cur), (right, df_prv, period_prv if has_prv else None)]:
             if df_w is None or len(df_w) == 0:
@@ -327,7 +458,8 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 fig.update_layout(height=400)
                 col_w.plotly_chart(fig, use_container_width=True)
 
-    elif chart_mode == "處置結果分佈":
+    if "處置結果分佈" in sel_charts:
+        st.markdown("##### 處置結果分佈")
         left, right = st.columns(2)
         for col_w, kpi_w, label in [(left, kpi_c, period_cur), (right, kpi_p, period_prv if has_prv else None)]:
             if kpi_w is None:
@@ -347,7 +479,8 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 fig.update_layout(height=400)
                 col_w.plotly_chart(fig, use_container_width=True)
 
-    elif chart_mode == "各類型不良率":
+    if "各類型不良率" in sel_charts:
+        st.markdown("##### 各類型不良率")
         fig = px.bar(
             df_cur.sort_values("整體不良率(%)", ascending=False),
             x=brand_col, y="整體不良率(%)",
@@ -355,10 +488,11 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
             title=f"{name}｜各類型整體不良率（{period_cur}）", text="整體不良率(%)",
         )
         fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside", textfont_size=12)
-        fig.update_layout(coloraxis_showscale=False, height=440, yaxis_title="整體不良率 (%)")
+        fig.update_layout(coloraxis_showscale=False, height=440, yaxis_title=vlabel("整體不良率 (%)"))
         st.plotly_chart(fig, use_container_width=True)
 
-    elif chart_mode == "同期回廠量比較":
+    if "同期回廠量比較" in sel_charts:
+        st.markdown("##### 同期回廠量比較")
         if df_prv is not None and len(df_prv) > 0:
             _c = df_cur[[brand_col,"回廠量"]].copy(); _c["期間"] = period_cur
             _p = df_prv[[brand_col,"回廠量"]].copy(); _p["期間"] = period_prv
@@ -366,13 +500,61 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
             fig = px.bar(combined, x=brand_col, y="回廠量", color="期間", barmode="group",
                          title=f"{name}｜回廠量同期比較",
                          color_discrete_map={period_cur:"#4e79a7", period_prv:"#f28e2b"})
-            fig.update_layout(height=440)
+            fig.update_layout(height=440, yaxis_title=vlabel("回廠量"))
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("尚無對比期間資料，待匯入去年同期資料後自動顯示。")
 
+    if "廠商同期比較" in sel_charts and has_vendor:
+        st.markdown("##### 廠商同期比較")
+        _num_cols = [c for c in ["回廠量","不良品數","良品數","過保數"] if c in df_cur.columns]
+        _c_v = df_cur[["廠商"] + _num_cols].groupby("廠商")[_num_cols].sum().reset_index()
+        _c_v["期間"] = period_cur
+        combined_v = _c_v.copy()
+        if df_prv is not None and len(df_prv) > 0:
+            _p_v = df_prv[["廠商"] + _num_cols].groupby("廠商")[_num_cols].sum().reset_index()
+            _p_v["期間"] = period_prv
+            combined_v = pd.concat([_c_v, _p_v], ignore_index=True)
+        fig = px.bar(
+            combined_v, x="廠商", y="回廠量", color="期間", barmode="group",
+            title=f"{name}｜廠商回廠量同期比較",
+            color_discrete_map={period_cur:"#4e79a7", period_prv:"#f28e2b"}
+        )
+        fig.update_layout(height=440, yaxis_title=vlabel("回廠量"))
+        st.plotly_chart(fig, use_container_width=True)
+
+    if "廠商各指標分析" in sel_charts and has_vendor:
+        st.markdown("##### 廠商各指標分析")
+        _avail_m = [c for c in ["回廠量","不良品數","良品數","過保數"] if c in df_cur.columns]
+        vendor_metrics = st.multiselect(
+            "選擇廠商分析指標", _avail_m,
+            default=_avail_m[:2] if len(_avail_m) >= 2 else _avail_m,
+            key=f"{name}_vmetrics"
+        )
+        _c_va = df_cur[["廠商"] + _avail_m].groupby("廠商")[_avail_m].sum().reset_index()
+        _c_va["期間"] = period_cur
+        combined_va = _c_va.copy()
+        if df_prv is not None and len(df_prv) > 0:
+            _p_va = df_prv[["廠商"] + _avail_m].groupby("廠商")[_avail_m].sum().reset_index()
+            _p_va["期間"] = period_prv
+            combined_va = pd.concat([_c_va, _p_va], ignore_index=True)
+        COLOR_MAP = {period_cur: "#4e79a7", period_prv: "#f28e2b"}
+        for metric in vendor_metrics:
+            if metric not in combined_va.columns:
+                continue
+            fig = px.bar(
+                combined_va[["廠商","期間",metric]].dropna(subset=[metric]),
+                x="廠商", y=metric, color="期間", barmode="group",
+                title=f"{metric}｜廠商同期比較（{period_cur}" + (f" vs {period_prv}" if has_prv else "") + "）",
+                color_discrete_map=COLOR_MAP, text=metric,
+            )
+            fig.update_traces(texttemplate="%{text:,}", textposition="outside")
+            fig.update_layout(height=420, yaxis_title=vlabel(metric), legend_title="期間")
+            st.plotly_chart(fig, use_container_width=True)
+
     st.markdown("---")
 
+    # ── 詳細資料
     hdr, tog = st.columns([3, 2])
     hdr.markdown("#### 詳細資料")
     collapse = tog.toggle("📁 摺疊明細（僅顯示小計）", value=False, key=f"{name}_collapse")
@@ -606,7 +788,7 @@ def render_flex_tab():
             texttemplate="%{text:.1f}" if "年限" in metric else "%{text:,}",
             textposition="outside"
         )
-        fig.update_layout(height=420, xaxis_title=dim, yaxis_title=metric, legend_title="期間",
+        fig.update_layout(height=420, xaxis_title=dim, yaxis_title=vlabel(metric), legend_title="期間",
                           uniformtext_minsize=9, uniformtext_mode="hide")
         st.plotly_chart(fig, use_container_width=True)
 
