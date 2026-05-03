@@ -376,26 +376,27 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         trend_periods = [period_cur] + ([period_prv] if has_prv else [])
         dt_base = df_trend_raw[df_trend_raw["期間"].isin(trend_periods)].copy()
 
-        # 補充廠商資訊
+        # 補充廠商資訊（若趨勢表已有廠商欄則跳過，避免 merge 產生廠商_x/廠商_y）
         t_brand_col = next((c for c in ["廠牌型號","廠牌","類型"] if c in dt_base.columns), None)
-        if has_vendor and t_brand_col:
+        if has_vendor and t_brand_col and "廠商" not in dt_base.columns:
             _join_col = brand_col if brand_col in dt_base.columns else t_brand_col
             _vmap = df_all[["廠商", brand_col]].drop_duplicates().rename(columns={brand_col: _join_col})
             if _join_col in dt_base.columns:
                 dt_base = dt_base.merge(_vmap, on=_join_col, how="left")
 
-        # 補充 ERP品號 - 品名 對照標籤
+        # 補充 ERP品號 - 品名 對照標籤（若趨勢表已有品名欄則跳過 merge，避免品名_x/品名_y）
         t_has_erp  = "ERP品號" in dt_base.columns
         if t_has_erp and has_name:
-            _en_map = (
-                df_all[["ERP品號","品名"]]
-                .dropna(subset=["ERP品號"])
-                .drop_duplicates(subset=["ERP品號"])
-            )
-            dt_base = dt_base.merge(_en_map, on="ERP品號", how="left")
+            if "品名" not in dt_base.columns:
+                _en_map = (
+                    df_all[["ERP品號","品名"]]
+                    .dropna(subset=["ERP品號"])
+                    .drop_duplicates(subset=["ERP品號"])
+                )
+                dt_base = dt_base.merge(_en_map, on="ERP品號", how="left")
             dt_base["_t_label"] = dt_base.apply(
                 lambda r: f"{str(r['ERP品號']).strip()} - {str(r['品名']).strip()}"
-                if pd.notna(r.get("品名")) and str(r.get("品名")).strip() else str(r["ERP品號"]),
+                if pd.notna(r["品名"]) and str(r["品名"]).strip() else str(r["ERP品號"]),
                 axis=1
             )
         t_has_label  = "_t_label" in dt_base.columns
@@ -416,17 +417,20 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
 
         if "年月" in dt.columns and sel_metric in dt.columns:
             dt_agg = dt.groupby(["期間","年月"])[sel_metric].sum().reset_index()
-            dt_agg["月份"] = dt_agg["年月"].astype(str).str[-2:] + "月"
-            fig_t = px.line(
-                dt_agg, x="月份", y=sel_metric, color="期間",
-                markers=True,
-                title=f"{name}｜{sel_metric} 月趨勢",
-                color_discrete_map={period_cur:"#4e79a7", period_prv:"#f28e2b"},
-            )
-            fig_t.update_traces(line=dict(width=2.5), marker=dict(size=8))
-            fig_t.update_layout(height=360, legend_title="期間")
-            apply_vlabel(fig_t, sel_metric)
-            st.plotly_chart(fig_t, use_container_width=True)
+            if dt_agg.empty:
+                st.info("目前篩選條件在月趨勢工作表中無對應資料，請確認 ERP品號 是否有月趨勢明細。")
+            else:
+                dt_agg["月份"] = dt_agg["年月"].astype(str).str[-2:] + "月"
+                fig_t = px.line(
+                    dt_agg, x="月份", y=sel_metric, color="期間",
+                    markers=True,
+                    title=f"{name}｜{sel_metric} 月趨勢",
+                    color_discrete_map={period_cur:"#4e79a7", period_prv:"#f28e2b"},
+                )
+                fig_t.update_traces(line=dict(width=2.5), marker=dict(size=8))
+                fig_t.update_layout(height=360, legend_title="期間")
+                apply_vlabel(fig_t, sel_metric)
+                st.plotly_chart(fig_t, use_container_width=True)
         else:
             st.info("月趨勢工作表缺少 `年月` 或對應指標欄位")
 
