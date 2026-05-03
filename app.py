@@ -371,7 +371,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
     if "月趨勢" in sel_display and trend_available:
         st.markdown("##### 📈 月趨勢")
         df_trend_raw.columns = df_trend_raw.columns.str.strip()
-        trend_cols_avail = [c for c in ["回廠量","不良品數","良品數","過保數","上線量"] if c in df_trend_raw.columns]
+        trend_cols_avail = [c for c in ["回廠量","不良品數","良品數","過保數","上線量","已使用年限"] if c in df_trend_raw.columns]
 
         trend_periods = [period_cur] + ([period_prv] if has_prv else [])
         dt_base = df_trend_raw[df_trend_raw["期間"].isin(trend_periods)].copy()
@@ -401,53 +401,18 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         t_has_label  = "_t_label" in dt_base.columns
         t_has_vendor = "廠商" in dt_base.columns
 
-        # 趨勢篩選器欄位數
-        _tcols = 1 + (1 if t_has_vendor else 0) + (1 if t_brand_col else 0) + (1 if t_has_erp else 0)
-        trend_ui = st.columns(_tcols)
+        # 月趨勢只顯示趨勢指標篩選；廠商/類型/ERP品號 沿用上方全域篩選
+        sel_metric = st.selectbox("趨勢指標", trend_cols_avail, key=f"{name}_tm")
 
-        with trend_ui[0]:
-            sel_metric = st.selectbox("趨勢指標", trend_cols_avail, key=f"{name}_tm")
-
-        _tidx = 1
-        t_sel_vendor = []
-        t_sel_brand  = []
-        t_sel_erp    = []
-
-        if t_has_vendor:
-            with trend_ui[_tidx]:
-                t_sel_vendor = st.multiselect(
-                    "廠商", sorted(dt_base["廠商"].dropna().unique().tolist()),
-                    key=f"{name}_t_vendor"
-                )
-            _tidx += 1
-
-        _dt_v = dt_base[dt_base["廠商"].isin(t_sel_vendor)] if t_sel_vendor else dt_base
-
-        if t_brand_col:
-            with trend_ui[_tidx]:
-                t_sel_brand = st.multiselect(
-                    "類型", sorted(_dt_v[t_brand_col].dropna().unique().tolist()),
-                    key=f"{name}_t_brand"
-                )
-            _tidx += 1
-
-        _dt_b = _dt_v[_dt_v[t_brand_col].isin(t_sel_brand)] if t_sel_brand and t_brand_col else _dt_v
-
-        if t_has_erp:
-            with trend_ui[_tidx]:
-                _erp_label_col = "_t_label" if t_has_label else "ERP品號"
-                t_erp_opts = sorted(_dt_b[_erp_label_col].dropna().unique().tolist())
-                t_sel_erp = st.multiselect("ERP品號", t_erp_opts, key=f"{name}_t_erp")
-
-        # 套用趨勢篩選
+        # 套用上方全域篩選至趨勢資料
         dt = dt_base.copy()
-        if t_sel_vendor and t_has_vendor:
-            dt = dt[dt["廠商"].isin(t_sel_vendor)]
-        if t_sel_brand and t_brand_col:
-            dt = dt[dt[t_brand_col].isin(t_sel_brand)]
-        if t_sel_erp and t_has_erp:
+        if sel_vendors and t_has_vendor:
+            dt = dt[dt["廠商"].isin(sel_vendors)]
+        if sel_brands and t_brand_col:
+            dt = dt[dt[t_brand_col].isin(sel_brands)]
+        if sel_erp and t_has_erp:
             _filter_col = "_t_label" if t_has_label else "ERP品號"
-            dt = dt[dt[_filter_col].isin(t_sel_erp)]
+            dt = dt[dt[_filter_col].isin(sel_erp)]
 
         if "年月" in dt.columns and sel_metric in dt.columns:
             dt_agg = dt.groupby(["期間","年月"])[sel_metric].sum().reset_index()
