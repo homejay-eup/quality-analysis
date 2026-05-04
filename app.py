@@ -245,14 +245,14 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         with fc1:
             sel_vendors = st.multiselect(
                 "廠商篩選",
-                sorted(df_cur["廠商"].dropna().unique().tolist()),
+                sorted(df_cur["廠商"].dropna().astype(str).unique().tolist()),
                 key=f"{name}_vendor"
             )
         _v_df = df_cur[df_cur["廠商"].isin(sel_vendors)] if sel_vendors else df_cur
         with fc2:
             sel_brands = st.multiselect(
                 "類型篩選",
-                sorted(_v_df[brand_col].dropna().unique().tolist()),
+                sorted(_v_df[brand_col].dropna().astype(str).unique().tolist()),
                 key=f"{name}_brand"
             )
         _b_df = _v_df[_v_df[brand_col].isin(sel_brands)] if sel_brands else _v_df
