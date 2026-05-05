@@ -428,7 +428,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
     trend_opt       = ["月趨勢"] if trend_available else []
 
     base_chart_opts   = ["上線量品質占比", "派工回廠品質占比", "回廠原因分佈", "處置結果分佈"]
-    vendor_chart_opts = ["廠商趨勢比較", "廠商各指標分析"] if has_vendor else []
+    vendor_chart_opts = ["廠商趨勢比較"] if has_vendor else []
     all_display_opts  = trend_opt + base_chart_opts + vendor_chart_opts
 
     sec_hdr, sec_cfg = st.columns([4, 2])
@@ -665,34 +665,6 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 st.plotly_chart(fig_vt, use_container_width=True)
             else:
                 st.info("請選擇至少一間廠商以顯示趨勢圖。")
-
-        # ── 廠商各指標分析
-        if "廠商各指標分析" in charts_to_render and has_vendor:
-            st.markdown("###### 廠商各指標分析")
-            _avail_m = [c for c in ["回廠量", "不良品數", "良品數", "過保數"] if c in df_cur.columns]
-            vendor_metrics = st.multiselect(
-                "選擇廠商分析指標", _avail_m,
-                default=_avail_m[:2] if len(_avail_m) >= 2 else _avail_m,
-                key=f"{name}_vmetrics")
-            _cva = df_cur[["廠商"] + _avail_m].groupby("廠商")[_avail_m].sum().reset_index(); _cva["期間"] = period_cur
-            combined_va = _cva.copy()
-            if df_prv is not None and len(df_prv) > 0:
-                _pva = df_prv[["廠商"] + _avail_m].groupby("廠商")[_avail_m].sum().reset_index(); _pva["期間"] = period_prv
-                combined_va = pd.concat([_cva, _pva], ignore_index=True)
-            COLOR_MAP = {period_cur: "#4e79a7", period_prv: "#f28e2b"}
-            for metric in vendor_metrics:
-                if metric not in combined_va.columns:
-                    continue
-                fig = px.bar(
-                    combined_va[["廠商", "期間", metric]].dropna(subset=[metric]),
-                    x="廠商", y=metric, color="期間", barmode="group",
-                    title=f"{metric}｜廠商同期比較（{period_cur}" + (f" vs {period_prv}" if has_prv else "") + "）",
-                    color_discrete_map=COLOR_MAP, text=metric,
-                )
-                fig.update_traces(texttemplate="%{text:,}", textposition="outside")
-                fig.update_layout(height=420, legend_title="期間")
-                apply_vlabel(fig, metric)
-                st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
 
