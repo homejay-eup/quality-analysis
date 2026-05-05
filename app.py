@@ -427,7 +427,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
     trend_available = not df_trend_raw.empty
     trend_opt       = ["月趨勢"] if trend_available else []
 
-    base_chart_opts   = ["上線量品質占比", "派工回廠品質占比", "回廠原因分佈", "處置結果分佈", "各類型不良率", "同期回廠量比較"]
+    base_chart_opts   = ["上線量品質占比", "派工回廠品質占比", "回廠原因分佈", "處置結果分佈"]
     vendor_chart_opts = ["廠商趨勢比較", "廠商各指標分析"] if has_vendor else []
     all_display_opts  = trend_opt + base_chart_opts + vendor_chart_opts
 
@@ -616,37 +616,6 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                     fig.update_traces(textinfo="percent+label", textposition="outside")
                     fig.update_layout(height=400)
                     col_w.plotly_chart(fig, use_container_width=True)
-
-        # ── 各類型不良率
-        if "各類型不良率" in charts_to_render:
-            st.markdown("###### 各類型不良率")
-            fig = px.bar(
-                df_cur.sort_values("整體不良率(%)", ascending=False),
-                x=brand_col, y="整體不良率(%)",
-                color="整體不良率(%)",
-                color_continuous_scale=[[0, "#00b050"], [1, "#ff0000"]],
-                title=f"{name}｜各類型整體不良率（{period_cur}）",
-                text="整體不良率(%)",
-            )
-            fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside", textfont_size=12)
-            fig.update_layout(coloraxis_showscale=False, height=440)
-            apply_vlabel(fig, "整體不良率 (%)")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # ── 同期回廠量比較
-        if "同期回廠量比較" in charts_to_render:
-            st.markdown("###### 同期回廠量比較")
-            if df_prv is not None and len(df_prv) > 0:
-                _c = df_cur[[brand_col, "回廠量"]].copy(); _c["期間"] = period_cur
-                _p = df_prv[[brand_col, "回廠量"]].copy(); _p["期間"] = period_prv
-                fig = px.bar(pd.concat([_c, _p]), x=brand_col, y="回廠量", color="期間",
-                             barmode="group", title=f"{name}｜回廠量同期比較",
-                             color_discrete_map={period_cur: "#4e79a7", period_prv: "#f28e2b"})
-                fig.update_layout(height=440)
-                apply_vlabel(fig, "回廠量")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("尚無對比期間資料，待匯入去年同期資料後自動顯示。")
 
         # ── 廠商趨勢比較（多廠商跨期折線圖）
         if "廠商趨勢比較" in charts_to_render and has_vendor:
