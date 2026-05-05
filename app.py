@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -206,11 +206,6 @@ def make_quality_donut_online(kpi, title_prefix):
     if kpi is None:
         return None
     online_remaining = max(0, kpi["total_on"] - kpi["total_ret"])
-    df_pie = pd.DataFrame({
-        "項目": ["仍在線數", "良品數", "過保數", "不良品數", "人為數"],
-        "數量": [online_remaining, kpi["total_good"], kpi["total_scrap"],
-                 kpi["total_bad"], kpi["total_human"]],
-    })
     colors = {
         "仍在線數": "#1f4e79",
         "良品數":   "#4472c4",
@@ -223,24 +218,45 @@ def make_quality_donut_online(kpi, title_prefix):
         hole=0.55, color="項目", color_discrete_map=colors,
         title=f"{title_prefix} - 上線量品質占比",
     )
-    fig.update_traces(textinfo="percent+label", textposition="outside", textfont_size=11)
+    labels = ["仍在線數", "良品數", "過保數", "不良品數", "人為數"]
+    values = [online_remaining, kpi["total_good"], kpi["total_scrap"],
+              kpi["total_bad"], kpi["total_human"]]
+    total = kpi["total_on"] or 1
+    custom_text = [
+        f"{lbl}<br>{v/total*100:.1f}%" if v / total * 100 >= 1 else ""
+        for lbl, v in zip(labels, values)
+    ]
+    df_pie = pd.DataFrame({"項目": labels, "數量": values})
+    fig = px.pie(
+        df_pie, values="數量", names="項目",
+        hole=0.55, color="項目", color_discrete_map=colors,
+        title=f"{title_prefix} - 上線量品質占比",
+    )
+    fig.update_traces(
+        text=custom_text,
+        textinfo="text",
+        textposition="outside",
+        automargin=True,
+        textfont_size=11,
+    )
     fig.add_annotation(
         text=f"上線總量<br>{kpi['total_on']:,}",
         showarrow=False, font=dict(size=11),
         x=0.5, y=0.5, xanchor="center", yanchor="middle",
     )
-    fig.update_layout(height=420, showlegend=False, margin=dict(t=60, b=20))
+    fig.update_layout(
+        height=500,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="top", y=-0.02,
+                    xanchor="center", x=0.5, font=dict(size=10)),
+        margin=dict(t=60, b=10, l=20, r=20),
+    )
     return fig
 
 # ── 圓環圖：派工回廠品質占比 ──────────────────────────────────────────────────
 def make_quality_donut_return(kpi, title_prefix):
     if kpi is None:
         return None
-    df_pie = pd.DataFrame({
-        "項目": ["良品數", "過保數", "不良品數", "人為數"],
-        "數量": [kpi["total_good"], kpi["total_scrap"],
-                 kpi["total_bad"], kpi["total_human"]],
-    })
     colors = {
         "良品數":  "#1f4e79",
         "過保數":  "#4472c4",
@@ -252,13 +268,39 @@ def make_quality_donut_return(kpi, title_prefix):
         hole=0.55, color="項目", color_discrete_map=colors,
         title=f"{title_prefix} - 派工回廠品質占比",
     )
-    fig.update_traces(textinfo="percent+label", textposition="outside", textfont_size=11)
+    labels = ["良品數", "過保數", "不良品數", "人為數"]
+    values = [kpi["total_good"], kpi["total_scrap"],
+              kpi["total_bad"], kpi["total_human"]]
+    total = kpi["total_ret"] or 1
+    custom_text = [
+        f"{lbl}<br>{v/total*100:.1f}%" if v / total * 100 >= 1 else ""
+        for lbl, v in zip(labels, values)
+    ]
+    df_pie = pd.DataFrame({"項目": labels, "數量": values})
+    fig = px.pie(
+        df_pie, values="數量", names="項目",
+        hole=0.55, color="項目", color_discrete_map=colors,
+        title=f"{title_prefix} - 派工回廠品質占比",
+    )
+    fig.update_traces(
+        text=custom_text,
+        textinfo="text",
+        textposition="outside",
+        automargin=True,
+        textfont_size=11,
+    )
     fig.add_annotation(
         text=f"回廠總量<br>{kpi['total_ret']:,}",
         showarrow=False, font=dict(size=11),
         x=0.5, y=0.5, xanchor="center", yanchor="middle",
     )
-    fig.update_layout(height=420, showlegend=False, margin=dict(t=60, b=20))
+    fig.update_layout(
+        height=500,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="top", y=-0.02,
+                    xanchor="center", x=0.5, font=dict(size=10)),
+        margin=dict(t=60, b=10, l=20, r=20),
+    )
     return fig
 
 # ── 主渲染函數 ────────────────────────────────────────────────────────────────
