@@ -453,40 +453,44 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
     else:
         sel_metric = _shared_metric_opts[0] if _shared_metric_opts else None
 
-    # ── 廠商指標跨期趨勢比較（在月趨勢上方）
+    # ── 廠商趨勢（在月趨勢上方）
     if _show_vendor_trend:
-        st.markdown("##### 📈 廠商指標跨期趨勢比較")
-        if sel_vendors and sel_metric and sel_metric in df_all.columns:
-            _ta = df_all[df_all["廠商"].isin(sel_vendors)].copy()
+        st.markdown("##### 📈 廠商趨勢")
+        if sel_metric and sel_metric in df_all.columns:
+            _ta = df_all[df_all["廠商"].isin(sel_vendors)].copy() if sel_vendors else df_all.copy()
             if sel_brands:
                 _ta = _ta[_ta[brand_col].isin(sel_brands)]
-            _ta_agg = (_ta.groupby(["廠商", "期間"])[sel_metric]
-                       .sum().reset_index().sort_values("期間"))
-            fig_vt = px.line(
-                _ta_agg, x="期間", y=sel_metric, color="廠商",
-                markers=True,
-                title=f"{name}｜廠商 {sel_metric} 跨期趨勢",
-            )
-            fig_vt.update_traces(line=dict(width=2.5), marker=dict(size=9))
-            for vendor in sel_vendors:
-                vdata = _ta_agg[_ta_agg["廠商"] == vendor].sort_values("期間")
-                if len(vdata) >= 2:
-                    last_val = float(vdata[sel_metric].iloc[-1])
-                    prev_val = float(vdata[sel_metric].iloc[-2])
-                    slope    = last_val - prev_val
-                    arrow    = "▲" if slope > 0 else "▼"
-                    color    = "red" if slope > 0 else "green"
-                    fig_vt.add_annotation(
-                        x=vdata["期間"].iloc[-1], y=last_val,
-                        text=f"&nbsp;{arrow}",
-                        showarrow=False, font=dict(size=18, color=color),
-                        xanchor="left", yanchor="middle",
-                    )
-            fig_vt.update_layout(height=420, legend_title="廠商")
-            apply_vlabel(fig_vt, sel_metric)
-            st.plotly_chart(fig_vt, use_container_width=True)
-        elif not sel_vendors:
-            st.info("請在上方「廠商篩選」選擇至少一間廠商以顯示趨勢圖。")
+            if sel_erp and "_label" in _ta.columns:
+                _ta = _ta[_ta["_label"].isin(sel_erp)]
+            _ta_vendors = sorted(_ta["廠商"].dropna().astype(str).unique().tolist())
+            if _ta.empty or not _ta_vendors:
+                st.info("目前篩選條件無對應廠商資料。")
+            else:
+                _ta_agg = (_ta.groupby(["廠商", "期間"])[sel_metric]
+                           .sum().reset_index().sort_values("期間"))
+                fig_vt = px.line(
+                    _ta_agg, x="期間", y=sel_metric, color="廠商",
+                    markers=True,
+                    title=f"{name}｜廠商 {sel_metric} 跨期趨勢",
+                )
+                fig_vt.update_traces(line=dict(width=2.5), marker=dict(size=9))
+                for vendor in _ta_vendors:
+                    vdata = _ta_agg[_ta_agg["廠商"] == vendor].sort_values("期間")
+                    if len(vdata) >= 2:
+                        last_val = float(vdata[sel_metric].iloc[-1])
+                        prev_val = float(vdata[sel_metric].iloc[-2])
+                        slope    = last_val - prev_val
+                        arrow    = "▲" if slope > 0 else "▼"
+                        color    = "red" if slope > 0 else "green"
+                        fig_vt.add_annotation(
+                            x=vdata["期間"].iloc[-1], y=last_val,
+                            text=f"&nbsp;{arrow}",
+                            showarrow=False, font=dict(size=18, color=color),
+                            xanchor="left", yanchor="middle",
+                        )
+                fig_vt.update_layout(height=420, legend_title="廠商")
+                apply_vlabel(fig_vt, sel_metric)
+                st.plotly_chart(fig_vt, use_container_width=True)
         else:
             st.info(f"廠商資料中找不到「{sel_metric}」欄位。")
         st.markdown("---")
