@@ -620,18 +620,11 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         # ── 廠商趨勢比較（多廠商跨期折線圖）
         if "廠商趨勢比較" in charts_to_render and has_vendor:
             st.markdown("###### 廠商指標跨期趨勢比較")
-            all_vendor_list = sorted(df_all["廠商"].dropna().astype(str).unique().tolist())
-            vt_c1, vt_c2 = st.columns(2)
-            with vt_c1:
-                trend_vendors = st.multiselect(
-                    "選擇比較廠商（最多 5 間）", all_vendor_list,
-                    max_selections=5, key=f"{name}_trend_vendors")
-            with vt_c2:
-                _tm_opts = [c for c in ["不良品數", "良品數", "過保數", "回廠量", "整體不良率(%)", "不良率(%)"] if c in df_all.columns]
-                trend_metric = st.selectbox("趨勢指標", _tm_opts, key=f"{name}_trend_metric")
+            _tm_opts = [c for c in ["不良品數", "良品數", "過保數", "回廠量", "整體不良率(%)", "不良率(%)"] if c in df_all.columns]
+            trend_metric = st.selectbox("趨勢指標", _tm_opts, key=f"{name}_trend_metric")
 
-            if trend_vendors:
-                _ta = df_all[df_all["廠商"].isin(trend_vendors)].copy()
+            if sel_vendors:
+                _ta = df_all[df_all["廠商"].isin(sel_vendors)].copy()
                 if sel_brands:
                     _ta = _ta[_ta[brand_col].isin(sel_brands)]
                 _ta_agg = (_ta.groupby(["廠商", "期間"])[trend_metric]
@@ -645,7 +638,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 fig_vt.update_traces(line=dict(width=2.5), marker=dict(size=9))
 
                 # 各廠商趨勢箭頭
-                for vendor in trend_vendors:
+                for vendor in sel_vendors:
                     vdata = _ta_agg[_ta_agg["廠商"] == vendor].sort_values("期間")
                     if len(vdata) >= 2:
                         last_val = float(vdata[trend_metric].iloc[-1])
@@ -664,7 +657,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 apply_vlabel(fig_vt, trend_metric)
                 st.plotly_chart(fig_vt, use_container_width=True)
             else:
-                st.info("請選擇至少一間廠商以顯示趨勢圖。")
+                st.info("請在上方「廠商篩選」選擇至少一間廠商以顯示趨勢圖。")
 
         st.markdown("---")
 
