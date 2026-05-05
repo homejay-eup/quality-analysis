@@ -206,42 +206,37 @@ def make_quality_donut_online(kpi, title_prefix):
     if kpi is None:
         return None
     online_remaining = max(0, kpi["total_on"] - kpi["total_ret"])
-    colors = {
-        "仍在線數": "#1f4e79",
-        "良品數":   "#4472c4",
-        "過保數":   "#7ba7d3",
-        "不良品數":  "#a9c4e4",
-        "人為數":   "#d6e4f0",
-    }
-    labels = ["仍在線數", "良品數", "過保數", "不良品數", "人為數"]
-    values = [online_remaining, kpi["total_good"], kpi["total_scrap"],
-              kpi["total_bad"], kpi["total_human"]]
+    _cmap = {"仍在線數":"#1f4e79","良品數":"#4472c4","過保數":"#7ba7d3","不良品數":"#a9c4e4","人為數":"#d6e4f0"}
+    _all = [("仍在線數", online_remaining), ("良品數", kpi["total_good"]),
+            ("過保數", kpi["total_scrap"]), ("不良品數", kpi["total_bad"]),
+            ("人為數", kpi["total_human"])]
+    _all = [(l, v) for l, v in _all if v > 0]
+    labels = [x[0] for x in _all]; values = [x[1] for x in _all]
+    marker_colors = [_cmap[l] for l in labels]
     total = kpi["total_on"] or 1
-    custom_text = [
-        f"{lbl}<br>{v/total*100:.1f}%" if v / total * 100 >= 1 else ""
-        for lbl, v in zip(labels, values)
-    ]
-    df_pie = pd.DataFrame({"項目": labels, "數量": values})
-    fig = px.pie(
-        df_pie, values="數量", names="項目",
-        hole=0.55, color="項目", color_discrete_map=colors,
-        title=f"{title_prefix} - 上線量品質占比",
-    )
-    fig.update_traces(
-        text=custom_text,
-        textinfo="text",
-        textposition="outside",
-        automargin=True,
-        textfont_size=11,
-    )
+    texts, textpos = [], []
+    for lbl, v in zip(labels, values):
+        pct = v / total * 100
+        if pct >= 50:
+            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("inside")
+        elif pct >= 1:
+            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("outside")
+        else:
+            texts.append(""); textpos.append("none")
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values, hole=0.55,
+        marker=dict(colors=marker_colors),
+        text=texts, textinfo="text", textposition=textpos,
+        textfont=dict(size=11), hoverinfo="label+value+percent",
+    ))
     fig.add_annotation(
         text=f"上線總量<br>{kpi['total_on']:,}",
         showarrow=False, font=dict(size=11),
         x=0.5, y=0.5, xanchor="center", yanchor="middle",
     )
     fig.update_layout(
-        height=500,
-        showlegend=True,
+        title=f"{title_prefix} - 上線量品質占比",
+        height=460, showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.02,
                     xanchor="center", x=0.5, font=dict(size=10)),
         margin=dict(t=60, b=10, l=20, r=20),
@@ -252,41 +247,36 @@ def make_quality_donut_online(kpi, title_prefix):
 def make_quality_donut_return(kpi, title_prefix):
     if kpi is None:
         return None
-    colors = {
-        "良品數":  "#1f4e79",
-        "過保數":  "#4472c4",
-        "不良品數": "#7ba7d3",
-        "人為數":  "#d6e4f0",
-    }
-    labels = ["良品數", "過保數", "不良品數", "人為數"]
-    values = [kpi["total_good"], kpi["total_scrap"],
-              kpi["total_bad"], kpi["total_human"]]
+    _cmap = {"良品數":"#1f4e79","過保數":"#4472c4","不良品數":"#7ba7d3","人為數":"#d6e4f0"}
+    _all = [("良品數", kpi["total_good"]), ("過保數", kpi["total_scrap"]),
+            ("不良品數", kpi["total_bad"]), ("人為數", kpi["total_human"])]
+    _all = [(l, v) for l, v in _all if v > 0]
+    labels = [x[0] for x in _all]; values = [x[1] for x in _all]
+    marker_colors = [_cmap[l] for l in labels]
     total = kpi["total_ret"] or 1
-    custom_text = [
-        f"{lbl}<br>{v/total*100:.1f}%" if v / total * 100 >= 1 else ""
-        for lbl, v in zip(labels, values)
-    ]
-    df_pie = pd.DataFrame({"項目": labels, "數量": values})
-    fig = px.pie(
-        df_pie, values="數量", names="項目",
-        hole=0.55, color="項目", color_discrete_map=colors,
-        title=f"{title_prefix} - 派工回廠品質占比",
-    )
-    fig.update_traces(
-        text=custom_text,
-        textinfo="text",
-        textposition="outside",
-        automargin=True,
-        textfont_size=11,
-    )
+    texts, textpos = [], []
+    for lbl, v in zip(labels, values):
+        pct = v / total * 100
+        if pct >= 50:
+            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("inside")
+        elif pct >= 1:
+            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("outside")
+        else:
+            texts.append(""); textpos.append("none")
+    fig = go.Figure(go.Pie(
+        labels=labels, values=values, hole=0.55,
+        marker=dict(colors=marker_colors),
+        text=texts, textinfo="text", textposition=textpos,
+        textfont=dict(size=11), hoverinfo="label+value+percent",
+    ))
     fig.add_annotation(
         text=f"回廠總量<br>{kpi['total_ret']:,}",
         showarrow=False, font=dict(size=11),
         x=0.5, y=0.5, xanchor="center", yanchor="middle",
     )
     fig.update_layout(
-        height=500,
-        showlegend=True,
+        title=f"{title_prefix} - 派工回廠品質占比",
+        height=460, showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.02,
                     xanchor="center", x=0.5, font=dict(size=10)),
         margin=dict(t=60, b=10, l=20, r=20),
@@ -532,13 +522,23 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
 
             if show_online and c_tbl1 is not None:
                 online_remaining = max(0, kpi_c["total_on"] - kpi_c["total_ret"])
-                _tbl_on = pd.DataFrame({
-                    "上線車機": ["良品數", "不良品數", "過保數", "人為數", "仍在線數", "指定上線總量"],
-                    "總計": [kpi_c["total_good"], kpi_c["total_bad"], kpi_c["total_scrap"],
-                             kpi_c["total_human"], online_remaining, kpi_c["total_on"]],
-                })
+                _rows_on = [("良品數", kpi_c["total_good"]), ("不良品數", kpi_c["total_bad"]),
+                            ("過保數", kpi_c["total_scrap"]), ("仍在線數", online_remaining),
+                            ("指定上線總量", kpi_c["total_on"])]
+                if kpi_c["total_human"] > 0:
+                    _rows_on.insert(3, ("人為數", kpi_c["total_human"]))
+                _html_on = (
+                    "<table style='font-size:13px;border-collapse:collapse'>"
+                    "<tr><th style='text-align:left;padding:3px 10px 3px 4px;border-bottom:1px solid #ddd'>上線車機</th>"
+                    "<th style='text-align:right;padding:3px 4px 3px 10px;border-bottom:1px solid #ddd'>總計</th></tr>"
+                    + "".join(
+                        f"<tr><td style='text-align:left;padding:2px 10px 2px 4px'>{r}</td>"
+                        f"<td style='text-align:right;padding:2px 4px 2px 10px'>{v:,}</td></tr>"
+                        for r, v in _rows_on
+                    ) + "</table>"
+                )
                 with c_tbl1:
-                    st.dataframe(_tbl_on, hide_index=True, use_container_width=True, height=248)
+                    st.markdown(_html_on, unsafe_allow_html=True)
                     on_pct  = kpi_c["total_on"]
                     scr_pct = kpi_c["total_scrap"] / on_pct * 100 if on_pct else 0
                     bad_pct = kpi_c["total_bad"]   / on_pct * 100 if on_pct else 0
@@ -549,13 +549,24 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                         st.plotly_chart(fig_online, use_container_width=True)
 
             if show_return and c_tbl2 is not None:
-                _tbl_ret = pd.DataFrame({
-                    "回廠車機": ["良品數", "不良品數", "過保數", "人為數", "回廠總量"],
-                    "總計": [kpi_c["total_good"], kpi_c["total_bad"], kpi_c["total_scrap"],
-                             kpi_c["total_human"], kpi_c["total_ret"]],
-                })
+                _rows_ret = [("良品數", kpi_c["total_good"]), ("不良品數", kpi_c["total_bad"]),
+                             ("過保數", kpi_c["total_scrap"]), ("回廠總量", kpi_c["total_ret"])]
+                # 人為數 > 0 才加入
+                if kpi_c["total_human"] > 0:
+                    _rows_ret.insert(3, ("人為數", kpi_c["total_human"]))
+                _html_ret = (
+                    "<table style='font-size:13px;border-collapse:collapse'>"
+                    "<tr><th style='text-align:left;padding:3px 10px 3px 4px;border-bottom:1px solid #ddd'>回廠車機</th>"
+                    "<th style='text-align:right;padding:3px 4px 3px 10px;border-bottom:1px solid #ddd'>總計</th></tr>"
+                    + "".join(
+                        f"<tr><td style='text-align:left;padding:2px 10px 2px 4px'>{r}</td>"
+                        f"<td style='text-align:right;padding:2px 4px 2px 10px'>{v:,}</td></tr>"
+                        for r, v in _rows_ret
+                    )
+                    + "</table>"
+                )
                 with c_tbl2:
-                    st.dataframe(_tbl_ret, hide_index=True, use_container_width=True, height=216)
+                    st.markdown(_html_ret, unsafe_allow_html=True)
                     ret = kpi_c["total_ret"]
                     gd_pct = kpi_c["total_good"] / ret * 100 if ret else 0
                     st.caption(f"▲ 可以得知{name}派工的回廠比，大多約良品，實際占了{gd_pct:.0f}%")
