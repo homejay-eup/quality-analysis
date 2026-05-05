@@ -428,7 +428,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
     trend_opt       = ["月趨勢"] if trend_available else []
 
     base_chart_opts   = ["上線量品質占比", "派工回廠品質占比", "回廠原因分佈", "處置結果分佈", "各類型不良率", "同期回廠量比較"]
-    vendor_chart_opts = ["廠商趨勢比較", "廠商長條圖比較", "廠商同期比較", "廠商各指標分析"] if has_vendor else []
+    vendor_chart_opts = ["廠商趨勢比較", "廠商各指標分析"] if has_vendor else []
     all_display_opts  = trend_opt + base_chart_opts + vendor_chart_opts
 
     sec_hdr, sec_cfg = st.columns([4, 2])
@@ -696,77 +696,6 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
                 st.plotly_chart(fig_vt, use_container_width=True)
             else:
                 st.info("請選擇至少一間廠商以顯示趨勢圖。")
-
-        # ── 廠商長條圖比較（單一廠商 + 趨勢線）
-        if "廠商長條圖比較" in charts_to_render and has_vendor:
-            st.markdown("###### 單一廠商跨期長條圖比較")
-            all_vendor_list2 = sorted(df_all["廠商"].dropna().astype(str).unique().tolist())
-            bar_c1, bar_c2 = st.columns(2)
-            with bar_c1:
-                single_vendor = st.selectbox("選擇廠商", all_vendor_list2, key=f"{name}_single_vendor")
-            with bar_c2:
-                _bar_opts = [c for c in ["良品數", "不良品數", "過保數", "回廠量", "上線量"] if c in df_all.columns]
-                single_metric = st.selectbox("比較指標", _bar_opts, key=f"{name}_single_metric")
-
-            _sv = df_all[df_all["廠商"] == single_vendor].copy()
-            if sel_brands:
-                _sv = _sv[_sv[brand_col].isin(sel_brands)]
-            _sv_agg = _sv.groupby("期間")[single_metric].sum().reset_index().sort_values("期間")
-
-            if not _sv_agg.empty:
-                fig_sv = go.Figure()
-                fig_sv.add_trace(go.Bar(
-                    x=_sv_agg["期間"], y=_sv_agg[single_metric],
-                    name=single_vendor,
-                    marker_color="#4472c4",
-                    text=_sv_agg[single_metric],
-                    textposition="outside",
-                    texttemplate="%{text:,}",
-                ))
-                fig_sv.add_trace(go.Scatter(
-                    x=_sv_agg["期間"], y=_sv_agg[single_metric],
-                    mode="lines+markers",
-                    name="趨勢線",
-                    line=dict(color="#ff6b35", width=2.5, dash="dot"),
-                    marker=dict(size=9, color="#ff6b35"),
-                ))
-                if len(_sv_agg) >= 2:
-                    last_val = float(_sv_agg[single_metric].iloc[-1])
-                    prev_val = float(_sv_agg[single_metric].iloc[-2])
-                    slope    = last_val - prev_val
-                    pct_chg  = slope / prev_val * 100 if prev_val != 0 else 0
-                    arrow    = "▲" if slope > 0 else "▼"
-                    color    = "red" if slope > 0 else "green"
-                    fig_sv.add_annotation(
-                        x=_sv_agg["期間"].iloc[-1], y=last_val,
-                        text=f"&nbsp;{arrow} {abs(pct_chg):.1f}%",
-                        showarrow=False, font=dict(size=14, color=color),
-                        xanchor="left", yanchor="middle",
-                    )
-                fig_sv.update_layout(
-                    title=f"{name}｜{single_vendor}｜{single_metric} 跨期比較",
-                    height=420, legend_title="", yaxis_title="",
-                )
-                apply_vlabel(fig_sv, single_metric)
-                st.plotly_chart(fig_sv, use_container_width=True)
-            else:
-                st.info("該廠商在目前篩選條件下無資料。")
-
-        # ── 廠商同期比較
-        if "廠商同期比較" in charts_to_render and has_vendor:
-            st.markdown("###### 廠商同期比較")
-            _nm = [c for c in ["回廠量", "不良品數", "良品數", "過保數"] if c in df_cur.columns]
-            _cv = df_cur[["廠商"] + _nm].groupby("廠商")[_nm].sum().reset_index(); _cv["期間"] = period_cur
-            combined_v = _cv.copy()
-            if df_prv is not None and len(df_prv) > 0:
-                _pv = df_prv[["廠商"] + _nm].groupby("廠商")[_nm].sum().reset_index(); _pv["期間"] = period_prv
-                combined_v = pd.concat([_cv, _pv], ignore_index=True)
-            fig = px.bar(combined_v, x="廠商", y="回廠量", color="期間", barmode="group",
-                         title=f"{name}｜廠商回廠量同期比較",
-                         color_discrete_map={period_cur: "#4e79a7", period_prv: "#f28e2b"})
-            fig.update_layout(height=440)
-            apply_vlabel(fig, "回廠量")
-            st.plotly_chart(fig, use_container_width=True)
 
         # ── 廠商各指標分析
         if "廠商各指標分析" in charts_to_render and has_vendor:
