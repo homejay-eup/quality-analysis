@@ -213,11 +213,6 @@ def make_quality_donut_online(kpi, title_prefix):
         "不良品數":  "#a9c4e4",
         "人為數":   "#d6e4f0",
     }
-    fig = px.pie(
-        df_pie, values="數量", names="項目",
-        hole=0.55, color="項目", color_discrete_map=colors,
-        title=f"{title_prefix} - 上線量品質占比",
-    )
     labels = ["仍在線數", "良品數", "過保數", "不良品數", "人為數"]
     values = [online_remaining, kpi["total_good"], kpi["total_scrap"],
               kpi["total_bad"], kpi["total_human"]]
@@ -263,11 +258,6 @@ def make_quality_donut_return(kpi, title_prefix):
         "不良品數": "#7ba7d3",
         "人為數":  "#d6e4f0",
     }
-    fig = px.pie(
-        df_pie, values="數量", names="項目",
-        hole=0.55, color="項目", color_discrete_map=colors,
-        title=f"{title_prefix} - 派工回廠品質占比",
-    )
     labels = ["良品數", "過保數", "不良品數", "人為數"]
     values = [kpi["total_good"], kpi["total_scrap"],
               kpi["total_bad"], kpi["total_human"]]
