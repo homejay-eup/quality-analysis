@@ -214,19 +214,21 @@ def make_quality_donut_online(kpi, title_prefix):
     labels = [x[0] for x in _all]; values = [x[1] for x in _all]
     marker_colors = [_cmap[l] for l in labels]
     total = kpi["total_on"] or 1
-    texts, textpos = [], []
+    texts = []
     for lbl, v in zip(labels, values):
         pct = v / total * 100
-        if pct >= 50:
-            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("inside")
+        if pct >= 10:
+            texts.append(f"{lbl}<br>{pct:.1f}%")
         elif pct >= 1:
-            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("outside")
+            texts.append(f"{pct:.1f}%")
         else:
-            texts.append(""); textpos.append("none")
+            texts.append("")
     fig = go.Figure(go.Pie(
         labels=labels, values=values, hole=0.55,
         marker=dict(colors=marker_colors),
-        text=texts, textinfo="text", textposition=textpos,
+        text=texts, textinfo="text",
+        textposition="inside",
+        insidetextorientation="horizontal",
         textfont=dict(size=11), hoverinfo="label+value+percent",
     ))
     fig.add_annotation(
@@ -236,10 +238,10 @@ def make_quality_donut_online(kpi, title_prefix):
     )
     fig.update_layout(
         title=f"{title_prefix} - 上線量品質占比",
-        height=460, showlegend=True,
+        height=380, showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.02,
                     xanchor="center", x=0.5, font=dict(size=10)),
-        margin=dict(t=60, b=10, l=20, r=20),
+        margin=dict(t=50, b=10, l=10, r=10),
     )
     return fig
 
@@ -254,19 +256,21 @@ def make_quality_donut_return(kpi, title_prefix):
     labels = [x[0] for x in _all]; values = [x[1] for x in _all]
     marker_colors = [_cmap[l] for l in labels]
     total = kpi["total_ret"] or 1
-    texts, textpos = [], []
+    texts = []
     for lbl, v in zip(labels, values):
         pct = v / total * 100
-        if pct >= 50:
-            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("inside")
+        if pct >= 10:
+            texts.append(f"{lbl}<br>{pct:.1f}%")
         elif pct >= 1:
-            texts.append(f"{lbl}<br>{pct:.1f}%"); textpos.append("outside")
+            texts.append(f"{pct:.1f}%")
         else:
-            texts.append(""); textpos.append("none")
+            texts.append("")
     fig = go.Figure(go.Pie(
         labels=labels, values=values, hole=0.55,
         marker=dict(colors=marker_colors),
-        text=texts, textinfo="text", textposition=textpos,
+        text=texts, textinfo="text",
+        textposition="inside",
+        insidetextorientation="horizontal",
         textfont=dict(size=11), hoverinfo="label+value+percent",
     ))
     fig.add_annotation(
@@ -276,10 +280,10 @@ def make_quality_donut_return(kpi, title_prefix):
     )
     fig.update_layout(
         title=f"{title_prefix} - 派工回廠品質占比",
-        height=460, showlegend=True,
+        height=380, showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.02,
                     xanchor="center", x=0.5, font=dict(size=10)),
-        margin=dict(t=60, b=10, l=20, r=20),
+        margin=dict(t=50, b=10, l=10, r=10),
     )
     return fig
 
