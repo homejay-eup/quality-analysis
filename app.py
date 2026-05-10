@@ -418,7 +418,7 @@ def render_tab(sheet_name, trend_sheet_name, name, fault_cols):
         for j, col in enumerate(row_cols):
             if i + j < len(kpis):
                 lbl, val, dlt = kpis[i + j]
-                col.metric(lbl, val, dlt)
+                col.metric(lbl, val, dlt, delta_color="normal")
 
     st.markdown("---")
 
